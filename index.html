@@ -361,6 +361,8 @@
   </div>
   <div class="header-actions">
     <button class="btn" id="btn-paste" title="Paste SRT text manually">Paste text</button>
+    <button class="btn" id="btn-save" disabled>Save session</button>
+    <button class="btn" id="btn-restore" style="display:none">Restore session</button>
     <button class="btn btn-primary" id="btn-export" disabled>Export SRTs</button>
   </div>
 </header>
@@ -385,7 +387,7 @@
   <div class="toolbar" id="toolbar" style="display:none">
     <div class="toolbar-left">
       <div class="stat"><strong id="stat-total">0</strong> captions</div>
-      <div class="warn-badge" id="warn-badge">⚠ <span id="warn-count">0</span> lines over 48 chars</div>
+      <div class="warn-badge" id="warn-badge">⚠ <span id="warn-count">0</span> lines over 55 chars</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="btn" id="btn-prev" disabled>← Prev warning</button>
@@ -431,7 +433,7 @@
 </div>
 
 <script>
-const CHAR_LIMIT = 48;
+const CHAR_LIMIT = 55;
 
 let data = { en: [], es: [] };
 let warningIndices = [];
@@ -475,12 +477,14 @@ function renderPairs() {
   const count = Math.max(en.length, es.length);
 
   if (count === 0) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⬆</div><strong>Load both SRT files to begin</strong><p>Upload the English and Spanish SRT files above.<br>Edit captions side by side, then export when ready.</p></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⬆</div><strong>Load an SRT file to begin</strong><p>Upload just the English SRT for Step 4 review, or both files for the side-by-side Step 6 review.</p></div>`;
     document.getElementById('toolbar').style.display = 'none';
     document.getElementById('progress-bar').style.display = 'none';
     document.getElementById('btn-export').disabled = true;
     return;
   }
+
+  const hasES = es.length > 0;
 
   document.getElementById('toolbar').style.display = 'flex';
   document.getElementById('progress-bar').style.display = 'block';
@@ -494,16 +498,24 @@ function renderPairs() {
     const e = en[i] || { start: '', end: '', text: '' };
     const s = es[i] || { start: '', end: '', text: '' };
     const enOver = maxLen(e.text) > CHAR_LIMIT;
-    const esOver = maxLen(s.text) > CHAR_LIMIT;
+    const esOver = hasES && maxLen(s.text) > CHAR_LIMIT;
     const hasWarn = enOver || esOver;
     if (hasWarn) warningIndices.push(i);
 
     const div = document.createElement('div');
     div.className = 'pair' + (hasWarn ? ' has-warn' : '');
     div.dataset.index = i;
+    if (!hasES) div.style.gridTemplateColumns = '80px 1fr';
 
     const timeRef = e.start || s.start;
     const timeEnd = e.end || s.end;
+
+    const esCell = hasES ? `
+      <div class="pair-cell">
+        <div class="cell-lang es">ES</div>
+        <textarea class="cell-edit" data-lang="es" data-idx="${i}" rows="2" spellcheck="true">${s.text}</textarea>
+        <div class="cell-chars ${esOver ? 'over' : ''}" id="cc-es-${i}">${maxLen(s.text)} / ${CHAR_LIMIT}</div>
+      </div>` : '';
 
     div.innerHTML = `
       <div class="pair-time">
@@ -515,11 +527,7 @@ function renderPairs() {
         <textarea class="cell-edit" data-lang="en" data-idx="${i}" rows="2" spellcheck="true">${e.text}</textarea>
         <div class="cell-chars ${enOver ? 'over' : ''}" id="cc-en-${i}">${maxLen(e.text)} / ${CHAR_LIMIT}</div>
       </div>
-      <div class="pair-cell">
-        <div class="cell-lang es">ES</div>
-        <textarea class="cell-edit" data-lang="es" data-idx="${i}" rows="2" spellcheck="true">${s.text}</textarea>
-        <div class="cell-chars ${esOver ? 'over' : ''}" id="cc-es-${i}">${maxLen(s.text)} / ${CHAR_LIMIT}</div>
-      </div>`;
+      ${esCell}`;
 
     list.appendChild(div);
   }
@@ -605,12 +613,9 @@ function scrollToWarning(dir) {
 }
 
 function tryLoad() {
-  if (data.en.length > 0 && data.es.length > 0) {
-    renderPairs();
-    updateProgress();
-  } else if (data.en.length > 0 || data.es.length > 0) {
-    renderPairs();
-  }
+  renderPairs();
+  updateProgress();
+  document.getElementById('btn-save').disabled = false;
 }
 
 function handleFile(file, lang) {
@@ -680,6 +685,62 @@ document.getElementById('paste-confirm').addEventListener('click', () => {
   updateProgress();
 });
 modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+
+function saveSession() {
+  const snapshot = {
+    en: data.en,
+    es: data.es,
+    nameEn: document.getElementById('name-en').textContent,
+    nameEs: document.getElementById('name-es').textContent,
+    savedAt: new Date().toLocaleTimeString()
+  };
+  document.querySelectorAll('.cell-edit').forEach(ta => {
+    const lang = ta.dataset.lang;
+    const idx = parseInt(ta.dataset.idx);
+    if (data[lang][idx]) data[lang][idx].text = ta.value;
+  });
+  snapshot.en = data.en;
+  snapshot.es = data.es;
+  try {
+    sessionStorage.setItem('srt-session', JSON.stringify(snapshot));
+    const btn = document.getElementById('btn-save');
+    btn.textContent = 'Saved ' + snapshot.savedAt;
+    setTimeout(() => { btn.textContent = 'Save session'; }, 2000);
+  } catch(e) {}
+}
+
+function checkRestoreAvailable() {
+  try {
+    const saved = sessionStorage.getItem('srt-session');
+    if (saved) document.getElementById('btn-restore').style.display = '';
+  } catch(e) {}
+}
+
+function restoreSession() {
+  try {
+    const saved = sessionStorage.getItem('srt-session');
+    if (!saved) return;
+    const snapshot = JSON.parse(saved);
+    data.en = snapshot.en || [];
+    data.es = snapshot.es || [];
+    if (snapshot.nameEn) document.getElementById('name-en').textContent = snapshot.nameEn;
+    if (snapshot.nameEs) document.getElementById('name-es').textContent = snapshot.nameEs;
+    renderPairs();
+    updateProgress();
+    document.getElementById('btn-save').disabled = false;
+  } catch(e) { alert('Could not restore session.'); }
+}
+
+document.getElementById('btn-save').addEventListener('click', saveSession);
+document.getElementById('btn-restore').addEventListener('click', restoreSession);
+
+window.addEventListener('beforeunload', e => {
+  if (data.en.length > 0 || data.es.length > 0) {
+    saveSession();
+  }
+});
+
+checkRestoreAvailable();
 </script>
 </body>
 </html>
