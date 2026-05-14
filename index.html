@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subtitle Reviewer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F6F2;
+    --surface: #FFFFFF;
+    --surface2: #F0EEE8;
+    --border: rgba(0,0,0,0.10);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #1A1916;
+    --text-muted: #7A786F;
+    --text-faint: #B0ADA5;
+    --accent: #2D5BE3;
+    --accent-bg: #EEF2FC;
+    --warn: #C45A00;
+    --warn-bg: #FFF3E8;
+    --success: #1A6B3A;
+    --success-bg: #EAF5EE;
+    --en-col: #0D3D8C;
+    --en-bg: #EBF2FF;
+    --es-col: #7A2C00;
+    --es-bg: #FFF0E8;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #18171A;
+      --surface: #222128;
+      --surface2: #2A2930;
+      --border: rgba(255,255,255,0.09);
+      --border-strong: rgba(255,255,255,0.16);
+      --text: #EDE9E0;
+      --text-muted: #8A8880;
+      --text-faint: #4A4845;
+      --accent: #6B8FFF;
+      --accent-bg: #1A2040;
+      --warn: #FFB368;
+      --warn-bg: #2A1A08;
+      --success: #5FD490;
+      --success-bg: #0A2018;
+      --en-col: #8AADFF;
+      --en-bg: #0F1E3A;
+      --es-col: #FFB080;
+      --es-bg: #2A1208;
+    }
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 400;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s, opacity 0.12s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: var(--surface2); }
+  .btn:active { opacity: 0.7; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: transparent;
+  }
+  .btn-primary:hover { opacity: 0.88; background: var(--accent); }
+
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .upload-zone {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .drop-area {
+    background: var(--surface);
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 10px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .drop-area:hover, .drop-area.over {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+
+  .drop-area input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .drop-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .drop-label.en { color: var(--en-col); }
+  .drop-label.es { color: var(--es-col); }
+
+  .drop-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .drop-filename {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stat {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  .stat strong { color: var(--text); font-weight: 500; }
+
+  .warn-badge {
+    font-size: 12px;
+    color: var(--warn);
+    background: var(--warn-bg);
+    border: 1px solid var(--warn);
+    padding: 4px 10px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .warn-badge.visible { opacity: 1; }
+
+  .pairs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .pair {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: 80px 1fr 1fr;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+
+  .pair:focus-within {
+    border-color: var(--border-strong);
+  }
+
+  .pair.has-warn {
+    border-color: var(--warn);
+  }
+
+  .pair-time {
+    padding: 12px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    line-height: 1.4;
+    border-right: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .pair-cell {
+    padding: 8px 12px;
+    position: relative;
+  }
+
+  .pair-cell + .pair-cell {
+    border-left: 1px solid var(--border);
+  }
+
+  .cell-lang {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .cell-lang.en { color: var(--en-col); }
+  .cell-lang.es { color: var(--es-col); }
+
+  .cell-edit {
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--text);
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    resize: none;
+    line-height: 1.5;
+    min-height: 38px;
+    overflow: hidden;
+  }
+
+  .cell-chars {
+    font-size: 10px;
+    font-family: var(--mono);
+    margin-top: 3px;
+    color: var(--text-faint);
+    text-align: right;
+  }
+
+  .cell-chars.over { color: var(--warn); font-weight: 500; }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    margin-bottom: 1rem;
+    opacity: 0.25;
+  }
+
+  .empty-state p { font-size: 14px; margin-top: 6px; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+  }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 1px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  @media (max-width: 700px) {
+    .upload-zone { grid-template-columns: 1fr; }
+    .pair { grid-template-columns: 64px 1fr; }
+    .pair-cell:last-child { grid-column: 2; border-left: none; border-top: 1px solid var(--border); }
+    .main { padding: 1rem; }
+    header { padding: 0 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Subtitle Reviewer
+  </div>
+  <div class="header-actions">
+    <button class="btn" id="btn-paste" title="Paste SRT text manually">Paste text</button>
+    <button class="btn btn-primary" id="btn-export" disabled>Export SRTs</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="upload-zone">
+    <div class="drop-area" id="drop-en">
+      <input type="file" accept=".srt,.txt" id="file-en">
+      <div class="drop-label en">English SRT</div>
+      <div class="drop-hint">Drop file or click to browse</div>
+      <div class="drop-filename" id="name-en"></div>
+    </div>
+    <div class="drop-area" id="drop-es">
+      <input type="file" accept=".srt,.txt" id="file-es">
+      <div class="drop-label es">Spanish SRT</div>
+      <div class="drop-hint">Drop file or click to browse</div>
+      <div class="drop-filename" id="name-es"></div>
+    </div>
+  </div>
+
+  <div class="toolbar" id="toolbar" style="display:none">
+    <div class="toolbar-left">
+      <div class="stat"><strong id="stat-total">0</strong> captions</div>
+      <div class="warn-badge" id="warn-badge">⚠ <span id="warn-count">0</span> lines over 48 chars</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" id="btn-prev" disabled>← Prev warning</button>
+      <button class="btn" id="btn-next" disabled>Next warning →</button>
+    </div>
+  </div>
+
+  <div class="progress-bar" id="progress-bar" style="display:none">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <div class="pairs-list" id="pairs-list">
+    <div class="empty-state">
+      <div class="empty-icon">⬆</div>
+      <strong>Load both SRT files to begin</strong>
+      <p>Upload the English and Spanish SRT files above.<br>Edit captions side by side, then export when ready.</p>
+    </div>
+  </div>
+
+</div>
+
+<div id="paste-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border-radius:12px;padding:1.5rem;width:560px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;gap:1rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <strong style="font-size:15px">Paste SRT text</strong>
+      <button class="btn" id="paste-close" style="padding:4px 10px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;flex:1;min-height:0;">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div class="cell-lang en">English SRT</div>
+        <textarea id="paste-en" placeholder="Paste English SRT here..." style="font-family:var(--mono);font-size:12px;flex:1;min-height:260px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text);outline:none;resize:none;line-height:1.6;"></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div class="cell-lang es">Spanish SRT</div>
+        <textarea id="paste-es" placeholder="Paste Spanish SRT here..." style="font-family:var(--mono);font-size:12px;flex:1;min-height:260px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text);outline:none;resize:none;line-height:1.6;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" id="paste-cancel">Cancel</button>
+      <button class="btn btn-primary" id="paste-confirm">Load captions</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CHAR_LIMIT = 48;
+
+let data = { en: [], es: [] };
+let warningIndices = [];
+let warnCursor = -1;
+
+function stripTags(str) {
+  return str.replace(/<[^>]*>/g, '').trim();
+}
+
+function parseSRT(text) {
+  const blocks = text.trim().split(/\n\s*\n/);
+  return blocks.map(block => {
+    const lines = block.trim().split('\n');
+    if (lines.length < 2) return null;
+    let i = 0;
+    if (/^\d+$/.test(lines[i].trim())) i++;
+    const timeLine = lines[i] || '';
+    const rawText = lines.slice(i + 1).join('\n').trim();
+    const textLines = stripTags(rawText);
+    const timeMatch = timeLine.match(/(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,\.]\d{3})/);
+    if (!timeMatch) return null;
+    return { start: timeMatch[1].replace('.', ','), end: timeMatch[2].replace('.', ','), text: textLines };
+  }).filter(Boolean);
+}
+
+function buildSRT(entries) {
+  return entries.map((e, i) => `${i + 1}\n${e.start} --> ${e.end}\n${e.text}`).join('\n\n') + '\n';
+}
+
+function fmtTime(t) {
+  return t.replace(',', '.').substring(0, 8);
+}
+
+function maxLen(text) {
+  return Math.max(...text.split('\n').map(l => l.length));
+}
+
+function renderPairs() {
+  const list = document.getElementById('pairs-list');
+  const en = data.en, es = data.es;
+  const count = Math.max(en.length, es.length);
+
+  if (count === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⬆</div><strong>Load both SRT files to begin</strong><p>Upload the English and Spanish SRT files above.<br>Edit captions side by side, then export when ready.</p></div>`;
+    document.getElementById('toolbar').style.display = 'none';
+    document.getElementById('progress-bar').style.display = 'none';
+    document.getElementById('btn-export').disabled = true;
+    return;
+  }
+
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('progress-bar').style.display = 'block';
+  document.getElementById('btn-export').disabled = false;
+  document.getElementById('stat-total').textContent = count;
+
+  list.innerHTML = '';
+  warningIndices = [];
+
+  for (let i = 0; i < count; i++) {
+    const e = en[i] || { start: '', end: '', text: '' };
+    const s = es[i] || { start: '', end: '', text: '' };
+    const enOver = maxLen(e.text) > CHAR_LIMIT;
+    const esOver = maxLen(s.text) > CHAR_LIMIT;
+    const hasWarn = enOver || esOver;
+    if (hasWarn) warningIndices.push(i);
+
+    const div = document.createElement('div');
+    div.className = 'pair' + (hasWarn ? ' has-warn' : '');
+    div.dataset.index = i;
+
+    const timeRef = e.start || s.start;
+    const timeEnd = e.end || s.end;
+
+    div.innerHTML = `
+      <div class="pair-time">
+        <span>${fmtTime(timeRef)}</span>
+        <span style="color:var(--text-faint)">→ ${fmtTime(timeEnd)}</span>
+      </div>
+      <div class="pair-cell">
+        <div class="cell-lang en">EN</div>
+        <textarea class="cell-edit" data-lang="en" data-idx="${i}" rows="2" spellcheck="true">${e.text}</textarea>
+        <div class="cell-chars ${enOver ? 'over' : ''}" id="cc-en-${i}">${maxLen(e.text)} / ${CHAR_LIMIT}</div>
+      </div>
+      <div class="pair-cell">
+        <div class="cell-lang es">ES</div>
+        <textarea class="cell-edit" data-lang="es" data-idx="${i}" rows="2" spellcheck="true">${s.text}</textarea>
+        <div class="cell-chars ${esOver ? 'over' : ''}" id="cc-es-${i}">${maxLen(s.text)} / ${CHAR_LIMIT}</div>
+      </div>`;
+
+    list.appendChild(div);
+  }
+
+  updateWarnBadge();
+  updateNavBtns();
+
+  list.querySelectorAll('.cell-edit').forEach(ta => {
+    autoGrow(ta);
+    ta.addEventListener('input', onEdit);
+  });
+}
+
+function autoGrow(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+function onEdit(e) {
+  const ta = e.target;
+  const lang = ta.dataset.lang;
+  const idx = parseInt(ta.dataset.idx);
+  const val = ta.value;
+
+  data[lang][idx] = data[lang][idx] || { start: '', end: '', text: '' };
+  data[lang][idx].text = val;
+
+  autoGrow(ta);
+
+  const len = maxLen(val);
+  const over = len > CHAR_LIMIT;
+  const cc = document.getElementById(`cc-${lang}-${idx}`);
+  if (cc) {
+    cc.textContent = `${len} / ${CHAR_LIMIT}`;
+    cc.className = 'cell-chars' + (over ? ' over' : '');
+  }
+
+  const pair = ta.closest('.pair');
+  const enOver = maxLen(data.en[idx]?.text || '') > CHAR_LIMIT;
+  const esOver = maxLen(data.es[idx]?.text || '') > CHAR_LIMIT;
+  const hasWarn = enOver || esOver;
+  pair.classList.toggle('has-warn', hasWarn);
+
+  rebuildWarnings();
+  updateWarnBadge();
+  updateNavBtns();
+  updateProgress();
+}
+
+function rebuildWarnings() {
+  warningIndices = [];
+  document.querySelectorAll('.pair.has-warn').forEach(p => {
+    warningIndices.push(parseInt(p.dataset.index));
+  });
+}
+
+function updateWarnBadge() {
+  const badge = document.getElementById('warn-badge');
+  const cnt = document.getElementById('warn-count');
+  const n = warningIndices.length;
+  cnt.textContent = n;
+  badge.classList.toggle('visible', n > 0);
+}
+
+function updateNavBtns() {
+  document.getElementById('btn-prev').disabled = warningIndices.length === 0;
+  document.getElementById('btn-next').disabled = warningIndices.length === 0;
+}
+
+function updateProgress() {
+  const total = Math.max(data.en.length, data.es.length);
+  const pct = total > 0 ? ((total - warningIndices.length) / total) * 100 : 0;
+  document.getElementById('progress-fill').style.width = Math.round(pct) + '%';
+}
+
+function scrollToWarning(dir) {
+  if (warningIndices.length === 0) return;
+  if (dir === 1) warnCursor = (warnCursor + 1) % warningIndices.length;
+  else warnCursor = (warnCursor - 1 + warningIndices.length) % warningIndices.length;
+  const idx = warningIndices[warnCursor];
+  const el = document.querySelector(`.pair[data-index="${idx}"]`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function tryLoad() {
+  if (data.en.length > 0 && data.es.length > 0) {
+    renderPairs();
+    updateProgress();
+  } else if (data.en.length > 0 || data.es.length > 0) {
+    renderPairs();
+  }
+}
+
+function handleFile(file, lang) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    data[lang] = parseSRT(ev.target.result);
+    document.getElementById('name-' + lang).textContent = file.name;
+    tryLoad();
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('file-en').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0], 'en');
+});
+document.getElementById('file-es').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0], 'es');
+});
+
+['en', 'es'].forEach(lang => {
+  const drop = document.getElementById('drop-' + lang);
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file, lang);
+  });
+});
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const en = data.en, es = data.es;
+  if (!en.length && !es.length) return;
+
+  document.querySelectorAll('.cell-edit').forEach(ta => {
+    const lang = ta.dataset.lang;
+    const idx = parseInt(ta.dataset.idx);
+    if (data[lang][idx]) data[lang][idx].text = ta.value;
+  });
+
+  if (en.length) downloadFile('subtitles_EN.srt', buildSRT(en));
+  if (es.length) setTimeout(() => downloadFile('subtitles_ES.srt', buildSRT(es)), 150);
+});
+
+function downloadFile(name, content) {
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
+  a.download = name;
+  a.click();
+}
+
+document.getElementById('btn-next').addEventListener('click', () => scrollToWarning(1));
+document.getElementById('btn-prev').addEventListener('click', () => scrollToWarning(-1));
+
+const modal = document.getElementById('paste-modal');
+document.getElementById('btn-paste').addEventListener('click', () => { modal.style.display = 'flex'; });
+document.getElementById('paste-close').addEventListener('click', () => { modal.style.display = 'none'; });
+document.getElementById('paste-cancel').addEventListener('click', () => { modal.style.display = 'none'; });
+document.getElementById('paste-confirm').addEventListener('click', () => {
+  const enText = document.getElementById('paste-en').value.trim();
+  const esText = document.getElementById('paste-es').value.trim();
+  if (enText) { data.en = parseSRT(enText); document.getElementById('name-en').textContent = 'pasted'; }
+  if (esText) { data.es = parseSRT(esText); document.getElementById('name-es').textContent = 'pasted'; }
+  modal.style.display = 'none';
+  tryLoad();
+  updateProgress();
+});
+modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+</script>
+</body>
+</html>
